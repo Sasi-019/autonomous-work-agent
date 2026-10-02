@@ -15,11 +15,12 @@ def check_permission(db, user_id, service, action):
         service.lower()
     )
 
+    normalized_action = action.lower().strip()
+
     permission = (
         db.query(Permission)
         .filter(
             Permission.user_id == user_id,
-            Permission.action == action,
             Permission.allowed == 1
         )
         .all()
@@ -31,7 +32,12 @@ def check_permission(db, user_id, service, action):
             item.service.lower()
         )
 
-        if stored_service == normalized_service:
+        stored_action = item.action.lower().strip()
+
+        if (
+            stored_service == normalized_service
+            and stored_action == normalized_action
+        ):
             return True
 
     return False
