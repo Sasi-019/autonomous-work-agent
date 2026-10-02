@@ -1,16 +1,72 @@
-# React + Vite
+# Autonomous Work Agent
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+An AI-powered agent that helps users complete multi-step work across authorized applications by understanding a goal, planning actions, using available tools, verifying results, and requesting human approval before consequential actions.
 
-Currently, two official plugins are available:
+# 💡 Project Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+In everyday work, users often have to perform repetitive tasks across multiple applications.
 
-## React Compiler
+For example, a user may need to:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Check emails
+- Find relevant information
+- Open a spreadsheet
+- Update specific rows or columns
+- Send a follow-up email
+- Track what has already been completed
 
-## Expanding the Oxlint configuration
+Doing these tasks manually requires multiple application switches, copy-pasting information, and repeated actions.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+### Our Solution
+
+**Autonomous Work Agent** allows the user to give a goal in natural language instead of manually performing every step.
+
+For example:
+
+> "Check the relevant emails and update the corresponding rows in my Google Sheet."
+
+The agent is designed to:
+
+1. Understand the user's goal.
+2. Break the goal into required steps.
+3. Decide which tool or application is needed.
+4. Execute the selected action.
+5. Receive the result from the tool.
+6. Update its task state.
+7. Verify the progress.
+8. Ask the user for approval before consequential actions.
+9. Continue until the task is completed or human intervention is required.
+
+The system is designed around the idea:
+
+> **Give a goal → Agent plans → Agent acts → Agent verifies → Human approves important actions → Task completed**
+
+---
+
+# 🧩 How Our Application Works
+
+The application follows a simple workflow.
+
+```text
+Login
+   ↓
+Connect Applications
+   ↓
+Authorize Permissions
+   ↓
+Give a Goal
+   ↓
+Agent Understands Goal
+   ↓
+Agent Plans Next Action
+   ↓
+Select Appropriate Tool
+   ↓
+Execute Action
+   ↓
+Verify Result
+   ↓
+Human Approval (if required)
+   ↓
+Complete Task
+```
