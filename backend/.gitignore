@@ -1,0 +1,29 @@
+
+venv/
+__pycache__/
+*.pyc
+autonomous_agent.db
+
+
+# Python virtual environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment variables / secrets
+.env
+.env.*
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Browser session/profile data
+browser_profile/
+
+# Logs
+*.log
