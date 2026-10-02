@@ -1,3 +1,6 @@
+import inspect
+from concurrent.futures import ThreadPoolExecutor
+
 from tools.registry import get_tool
 
 
@@ -26,7 +29,29 @@ def execute_tool(
         )
 
     try:
-        result = tool(**arguments)
+        # Run synchronous tools in a separate worker thread.
+        #
+        # This is important for browser automation because
+        # Playwright's Sync API cannot run inside the asyncio
+        # event loop used by FastAPI.
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                tool,
+                **arguments
+            )
+
+            result = future.result()
+
+        # If a tool itself returns a coroutine, execute it
+        # outside the current event loop.
+        if inspect.iscoroutine(result):
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(
+                    _run_coroutine,
+                    result
+                )
+
+                result = future.result()
 
         if result is None:
             return {
@@ -44,3 +69,9 @@ def execute_tool(
             "message": str(exc),
             "tool": tool_name,
         }
+
+
+def _run_coroutine(coroutine):
+    import asyncio
+
+    return asyncio.run(coroutine)

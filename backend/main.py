@@ -134,6 +134,7 @@ Base.metadata.create_all(bind=engine)
 class TaskCreate(BaseModel):
     workspace: str
     goal: str
+    resource: str | None = None
 
 
 class TaskRequest(BaseModel):
@@ -190,6 +191,7 @@ class SheetUpdateRequest(BaseModel):
 class AgentTaskRequest(BaseModel):
     workspace: str
     goal: str
+    resource: str | None = None
 
 
 # ==================================================
@@ -427,13 +429,15 @@ def create_task(
         print("Task ID:", task.id)
         print("Workspace:", task.workspace)
         print("Goal:", task.goal)
+        print("Resource:", task_data.resource)
         print("================================\n")
 
         result = run_agent(
             goal=task.goal,
             user_id=current_user_id,
             workspace=task.workspace,
-            task_id=task.id
+            task_id=task.id,
+            resource=task_data.resource
         )
 
         if result.get("status") == "approval_required":
@@ -452,6 +456,7 @@ def create_task(
             "id": task.id,
             "workspace": task.workspace,
             "goal": task.goal,
+            "resource": task_data.resource,
             "status": task.status,
             "result": result
         }
@@ -620,13 +625,26 @@ def create_approval(
         )
 
     sheet_actions = {
-        "update_sheet", "append_rows", "clear_range",
-        "delete_row", "delete_column", "format_header_bold"
+        "update_sheet",
+        "append_rows",
+        "clear_range",
+        "delete_row",
+        "delete_column",
+        "format_header_bold"
     }
-    gmail_actions = {"send_email", "trash_email"}
 
-    if (action in sheet_actions and service not in {"google", "google_sheets"}) or \
-       (action in gmail_actions and service != "gmail"):
+    gmail_actions = {
+        "send_email",
+        "trash_email"
+    }
+
+    if (
+        action in sheet_actions
+        and service not in {"google", "google_sheets"}
+    ) or (
+        action in gmail_actions
+        and service != "gmail"
+    ):
         raise HTTPException(
             status_code=400,
             detail="Service and action do not match"
@@ -763,21 +781,6 @@ def decide_approval(
             detail=f"Invalid approval details: {str(error)}"
         )
 
-    spreadsheet_id = approval_details.get(
-        "spreadsheet_id"
-    )
-
-    range_name = approval_details.get(
-        "range_name"
-    )
-
-    if not spreadsheet_id:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Spreadsheet ID missing from approval."
-        )
-
     # ==================================================
     # 6. GET GOOGLE CONNECTION
     # ==================================================
@@ -818,7 +821,104 @@ def decide_approval(
         )
 
     # ==================================================
-    # 8. COMMON GOOGLE CREDENTIALS
+    # 8. GMAIL APPROVAL
+    # ==================================================
+
+    if approval.action in {"send_email", "trash_email"}:
+
+        tool_arguments = {
+            "access_token": connection.access_token,
+            "refresh_token": connection.refresh_token,
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "scopes": GOOGLE_SCOPES,
+        }
+
+        # The agent stores the actual Gmail tool arguments
+        # inside approval.details. Reuse them when the user approves.
+        tool_arguments.update(approval_details)
+
+        # Never allow credentials to be overridden by approval details.
+        tool_arguments["access_token"] = connection.access_token
+        tool_arguments["refresh_token"] = connection.refresh_token
+        tool_arguments["client_id"] = GOOGLE_CLIENT_ID
+        tool_arguments["client_secret"] = GOOGLE_CLIENT_SECRET
+        tool_arguments["scopes"] = GOOGLE_SCOPES
+
+        try:
+
+            result = execute_tool(
+                approval.action,
+                tool_arguments
+            )
+
+        except Exception as error:
+
+            approval.status = "failed"
+
+            db.commit()
+
+            return {
+                "message": f"Tool execution failed: {str(error)}",
+                "id": approval.id,
+                "status": "failed"
+            }
+
+        if (
+            isinstance(result, dict)
+            and result.get("success") is False
+        ):
+
+            approval.status = "failed"
+
+            db.commit()
+
+            return {
+                "message": result.get(
+                    "message",
+                    "Gmail action failed."
+                ),
+                "id": approval.id,
+                "status": "failed",
+                "result": result
+            }
+
+        approval.status = "approved"
+
+        db.commit()
+        db.refresh(approval)
+
+        return {
+            "message": (
+                f"Approval approved and {approval.action} executed."
+            ),
+            "id": approval.id,
+            "status": "approved",
+            "action": approval.action,
+            "result": result
+        }
+
+    # ==================================================
+    # 9. GOOGLE SHEETS APPROVAL
+    # ==================================================
+
+    spreadsheet_id = approval_details.get(
+        "spreadsheet_id"
+    )
+
+    range_name = approval_details.get(
+        "range_name"
+    )
+
+    if not spreadsheet_id:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Spreadsheet ID missing from approval."
+        )
+
+    # ==================================================
+    # 10. COMMON GOOGLE SHEETS CREDENTIALS
     # ==================================================
 
     tool_arguments = {
@@ -832,7 +932,7 @@ def decide_approval(
     }
 
     # ==================================================
-    # 9. ACTION-SPECIFIC ARGUMENTS
+    # 11. ACTION-SPECIFIC ARGUMENTS
     # ==================================================
 
     if approval.action == "update_sheet":
@@ -906,7 +1006,7 @@ def decide_approval(
         )
 
     # ==================================================
-    # 10. EXECUTE ACTUAL TOOL
+    # 12. EXECUTE ACTUAL SHEETS TOOL
     # ==================================================
 
     try:
@@ -929,7 +1029,30 @@ def decide_approval(
         }
 
     # ==================================================
-    # 11. VERIFY UPDATE
+    # 13. CHECK TOOL FAILURE
+    # ==================================================
+
+    if (
+        isinstance(result, dict)
+        and result.get("success") is False
+    ):
+
+        approval.status = "failed"
+
+        db.commit()
+
+        return {
+            "message": result.get(
+                "message",
+                "Sheet action failed."
+            ),
+            "id": approval.id,
+            "status": "failed",
+            "result": result
+        }
+
+    # ==================================================
+    # 14. VERIFY UPDATE
     # ==================================================
 
     verified = None
@@ -970,7 +1093,10 @@ def decide_approval(
                 "verified": False
             }
 
-        if not verified:
+        if (
+            not isinstance(verified, dict)
+            or not verified.get("verified", False)
+        ):
 
             approval.status = "failed"
 
@@ -984,7 +1110,7 @@ def decide_approval(
             }
 
     # ==================================================
-    # 12. MARK APPROVAL COMPLETE
+    # 15. MARK APPROVAL COMPLETE
     # ==================================================
 
     approval.status = "approved"
@@ -993,7 +1119,7 @@ def decide_approval(
     db.refresh(approval)
 
     # ==================================================
-    # 13. RETURN RESULT
+    # 16. RETURN RESULT
     # ==================================================
 
     response = {
@@ -1338,7 +1464,8 @@ def run_agent_endpoint(
     result = run_agent(
         goal=request.goal,
         user_id=current_user_id,
-        workspace=request.workspace
+        workspace=request.workspace,
+        resource=request.resource
     )
 
     return result
