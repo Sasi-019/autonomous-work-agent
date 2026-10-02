@@ -34,7 +34,10 @@ from tools.sheets import read_sheet, update_sheet
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI",
+    "https://autonomous-work-agent.onrender.com/auth/google/callback"
+)
 
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -94,12 +97,23 @@ app = FastAPI(
 # CORS
 # ==================================================
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "https://autonomous-work-agent-frontend.onrender.com"
+)
 
+ALLOWED_ORIGINS = list(
+    dict.fromkeys(
+        [
+            FRONTEND_URL.rstrip("/"),
+            "https://autonomous-work-agent-frontend.onrender.com",
+        ]
+    )
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
@@ -262,7 +276,14 @@ def register(user: RegisterRequest):
 
     try:
 
+        email = user.email.strip().lower()
         password_bytes = user.password.encode("utf-8")
+
+        if not email:
+            raise HTTPException(
+                status_code=400,
+                detail="Email is required"
+            )
 
         if len(password_bytes) < 8 or len(password_bytes) > 72:
             raise HTTPException(
@@ -271,13 +292,14 @@ def register(user: RegisterRequest):
             )
 
         existing_user = db.query(models.User).filter(
-            models.User.email == user.email
+            models.User.email == email
         ).first()
 
         if existing_user:
-            return {
-                "message": "User already exists"
-            }
+            raise HTTPException(
+                status_code=409,
+                detail="User already exists"
+            )
 
         password_hash = bcrypt.hashpw(
             password_bytes,
@@ -285,7 +307,7 @@ def register(user: RegisterRequest):
         ).decode("utf-8")
 
         new_user = models.User(
-            email=user.email,
+            email=email,
             password_hash=password_hash
         )
 
@@ -314,10 +336,7 @@ def login(user: LoginRequest):
 
     try:
 
-        existing_user = db.query(models.User).filter(
-            models.User.email == user.email
-        ).first()
-
+        email = user.email.strip().lower()
         password_bytes = user.password.encode("utf-8")
 
         if len(password_bytes) > 72:
@@ -325,6 +344,10 @@ def login(user: LoginRequest):
                 status_code=401,
                 detail="Invalid email or password"
             )
+
+        existing_user = db.query(models.User).filter(
+            models.User.email == email
+        ).first()
 
         if not existing_user:
             raise HTTPException(
@@ -629,6 +652,7 @@ def create_approval(
         "status": new_approval.status,
         "user_id": new_approval.user_id
     }
+
 
 @app.get("/approvals")
 def get_approvals(
