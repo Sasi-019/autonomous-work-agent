@@ -1,9 +1,6 @@
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-} from "react-router-dom";
+
+
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -13,7 +10,6 @@ import Connections from "./pages/Connections";
 import Permissions from "./pages/Permissions";
 import Approvals from "./pages/Approvals";
 import History from "./pages/History";
-
 
 function ProtectedRoute({ children }) {
   const token =

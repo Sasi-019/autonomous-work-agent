@@ -41,7 +41,7 @@ function Register() {
       setError("");
 
       const response = await fetch(
-        "http://127.0.0.1:8000/register",
+        "https://autonomous-work-agent.onrender.com/register",
         {
           method: "POST",
           headers: {

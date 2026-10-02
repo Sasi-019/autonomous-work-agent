@@ -36,7 +36,7 @@ function GoalInput({ onTaskCreated }) {
       setError("");
 
       const response = await fetch(
-        "http://127.0.0.1:8000/tasks",
+        "https://autonomous-work-agent.onrender.com/tasks",
         {
           method: "POST",
           headers: {

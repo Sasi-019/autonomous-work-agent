@@ -24,7 +24,7 @@ function History() {
 
       try {
         const response = await fetch(
-          "http://127.0.0.1:8000/history",
+          "https://autonomous-work-agent.onrender.com/history",
           {
             headers: {
               Authorization: `Bearer ${token}`,

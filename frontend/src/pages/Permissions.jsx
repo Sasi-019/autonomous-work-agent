@@ -63,7 +63,7 @@ function Permissions() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/permissions",
+        "https://autonomous-work-agent.onrender.com/permissions",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -126,7 +126,7 @@ function Permissions() {
       );
 
       const response = await fetch(
-        "http://127.0.0.1:8000/permissions",
+        "https://autonomous-work-agent.onrender.com/permissions",
         {
           method: "POST",
           headers: {

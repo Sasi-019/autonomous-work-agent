@@ -26,7 +26,7 @@ function Connections() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/connections",
+        "https://autonomous-work-agent.onrender.com/connections",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -72,7 +72,7 @@ function Connections() {
       setError("");
 
       const response = await fetch(
-        "http://127.0.0.1:8000/auth/google",
+        "https://autonomous-work-agent.onrender.com/auth/google",
         {
           headers: {
             Authorization: `Bearer ${token}`,

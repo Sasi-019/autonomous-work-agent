@@ -24,7 +24,7 @@ function Approvals() {
       setError("");
 
       const response = await fetch(
-        "http://127.0.0.1:8000/approvals",
+        "https://autonomous-work-agent.onrender.com/approvals",
         {
           method: "GET",
           headers: {
@@ -79,7 +79,7 @@ function Approvals() {
       setError("");
 
       const response = await fetch(
-        `http://127.0.0.1:8000/approvals/${approvalId}`,
+        `https://autonomous-work-agent.onrender.com/approvals/${approvalId}`,
         {
           method: "POST",
           headers: {
